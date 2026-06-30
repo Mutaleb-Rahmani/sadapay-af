@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { router } from "expo-router";
-import React, { useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -27,10 +27,18 @@ export default function SendScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { balance, sendMoney } = useWallet();
-  const [recipient, setRecipient] = useState("");
+  const params = useLocalSearchParams<{ recipient?: string }>();
+  const [recipient, setRecipient] = useState(params.recipient ?? "");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (params.recipient) {
+      setRecipient(params.recipient);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  }, [params.recipient]);
 
   const numericAmount = parseFloat(amount) || 0;
   const isValid = recipient.trim().length > 0 && numericAmount > 0 && numericAmount <= balance;
@@ -62,7 +70,15 @@ export default function SendScreen() {
           <Feather name="arrow-left" size={22} color={colors.foreground} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>Send Money</Text>
-        <View style={{ width: 40 }} />
+        <Pressable
+          style={[styles.scanBtn, { backgroundColor: colors.accent }]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push("/scan");
+          }}
+        >
+          <Feather name="maximize" size={18} color={colors.primary} />
+        </Pressable>
       </View>
 
       <View style={styles.body}>
@@ -89,16 +105,35 @@ export default function SendScreen() {
 
         {/* Recipient */}
         <Text style={[styles.label, { color: colors.mutedForeground }]}>To</Text>
-        <View style={[styles.inputBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Feather name="user" size={18} color={colors.mutedForeground} />
+        <View style={[styles.inputBox, { backgroundColor: colors.card, borderColor: recipient.startsWith("SADA-AF-") ? colors.primary : colors.border }]}>
+          <Feather
+            name={recipient.startsWith("SADA-AF-") ? "check-circle" : "user"}
+            size={18}
+            color={recipient.startsWith("SADA-AF-") ? colors.primary : colors.mutedForeground}
+          />
           <TextInput
             style={[styles.input, { color: colors.foreground }]}
             value={recipient}
             onChangeText={setRecipient}
-            placeholder="Name or phone number"
+            placeholder="Name, phone, or scan QR code"
             placeholderTextColor={colors.mutedForeground}
           />
+          {recipient.length > 0 && (
+            <Pressable onPress={() => setRecipient("")}>
+              <Feather name="x" size={16} color={colors.mutedForeground} />
+            </Pressable>
+          )}
         </View>
+
+        {/* Scanned badge */}
+        {recipient.startsWith("SADA-AF-") && (
+          <View style={[styles.scannedBadge, { backgroundColor: colors.accent }]}>
+            <Feather name="maximize" size={13} color={colors.primary} />
+            <Text style={[styles.scannedText, { color: colors.primary }]}>
+              Wallet ID scanned successfully
+            </Text>
+          </View>
+        )}
 
         {/* Quick contacts */}
         <View style={styles.contacts}>
@@ -127,6 +162,22 @@ export default function SendScreen() {
               </Text>
             </Pressable>
           ))}
+          {/* Scan QR chip */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.contactChip,
+              { backgroundColor: colors.card, opacity: pressed ? 0.8 : 1 },
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push("/scan");
+            }}
+          >
+            <View style={[styles.contactAvatar, { backgroundColor: colors.accent }]}>
+              <Feather name="maximize" size={18} color={colors.primary} />
+            </View>
+            <Text style={[styles.contactName, { color: colors.foreground }]}>Scan QR</Text>
+          </Pressable>
         </View>
 
         {/* Note */}
@@ -175,15 +226,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   backBtn: { width: 40, alignItems: "flex-start" },
-  headerTitle: {
-    fontSize: 18,
-    fontFamily: "Inter_600SemiBold",
+  headerTitle: { fontSize: 18, fontFamily: "Inter_600SemiBold" },
+  scanBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  body: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 24,
-  },
+  body: { flex: 1, paddingHorizontal: 20, paddingTop: 24 },
   balanceBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -193,10 +244,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 24,
   },
-  balanceText: {
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
-  },
+  balanceText: { fontSize: 13, fontFamily: "Inter_500Medium" },
   amountSection: {
     flexDirection: "row",
     alignItems: "center",
@@ -204,10 +252,7 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 32,
   },
-  amountCurrency: {
-    fontSize: 28,
-    fontFamily: "Inter_500Medium",
-  },
+  amountCurrency: { fontSize: 28, fontFamily: "Inter_500Medium" },
   amountInput: {
     fontSize: 52,
     fontFamily: "Inter_700Bold",
@@ -229,13 +274,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 14,
     gap: 10,
-    marginBottom: 16,
+    marginBottom: 8,
   },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    fontFamily: "Inter_400Regular",
+  input: { flex: 1, fontSize: 16, fontFamily: "Inter_400Regular" },
+  scannedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 12,
+    alignSelf: "flex-start",
   },
+  scannedText: { fontSize: 12, fontFamily: "Inter_500Medium" },
   contacts: {
     flexDirection: "row",
     gap: 10,
@@ -256,14 +308,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  contactInitial: {
-    fontSize: 15,
-    fontFamily: "Inter_700Bold",
-  },
-  contactName: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-  },
+  contactInitial: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  contactName: { fontSize: 12, fontFamily: "Inter_500Medium" },
   sendBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -273,8 +319,5 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 8,
   },
-  sendBtnText: {
-    fontSize: 17,
-    fontFamily: "Inter_600SemiBold",
-  },
+  sendBtnText: { fontSize: 17, fontFamily: "Inter_600SemiBold" },
 });
