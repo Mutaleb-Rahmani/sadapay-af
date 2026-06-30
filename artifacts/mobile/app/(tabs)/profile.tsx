@@ -1,5 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
@@ -12,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 
 function SettingRow({
@@ -55,6 +57,7 @@ function SettingRow({
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { user, logout } = useAuth();
   const [notifications, setNotifications] = useState(true);
   const [biometric, setBiometric] = useState(false);
 
@@ -77,10 +80,12 @@ export default function ProfileScreen() {
       {/* Avatar */}
       <View style={styles.profileSection}>
         <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-          <Text style={[styles.avatarText, { color: colors.primaryForeground }]}>SP</Text>
+          <Text style={[styles.avatarText, { color: colors.primaryForeground }]}>
+            {user?.name?.[0]?.toUpperCase() ?? "S"}
+          </Text>
         </View>
-        <Text style={[styles.profileName, { color: colors.foreground }]}>sadapay User</Text>
-        <Text style={[styles.profilePhone, { color: colors.mutedForeground }]}>+93 700 000 000</Text>
+        <Text style={[styles.profileName, { color: colors.foreground }]}>{user?.name ?? "sadapay User"}</Text>
+        <Text style={[styles.profilePhone, { color: colors.mutedForeground }]}>{user?.phone ?? "+93 700 000 000"}</Text>
         <View style={[styles.verifiedBadge, { backgroundColor: colors.accent }]}>
           <Feather name="check-circle" size={13} color={colors.primary} />
           <Text style={[styles.verifiedText, { color: colors.primary }]}>Verified Account</Text>
@@ -180,7 +185,14 @@ export default function ProfileScreen() {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           Alert.alert("Sign Out", "Are you sure you want to sign out?", [
             { text: "Cancel", style: "cancel" },
-            { text: "Sign Out", style: "destructive" },
+            {
+              text: "Sign Out",
+              style: "destructive",
+              onPress: async () => {
+                await logout();
+                router.replace("/auth/login");
+              },
+            },
           ]);
         }}
       >
