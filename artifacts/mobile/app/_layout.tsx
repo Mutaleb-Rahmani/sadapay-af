@@ -31,6 +31,10 @@ function RootLayoutNav() {
         name="receive"
         options={{ headerShown: false, presentation: "modal" }}
       />
+      <Stack.Screen
+        name="scan"
+        options={{ headerShown: false, presentation: "fullScreenModal" }}
+      />
     </Stack>
   );
 }
