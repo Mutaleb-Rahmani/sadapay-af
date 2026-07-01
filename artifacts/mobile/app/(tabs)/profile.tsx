@@ -190,7 +190,8 @@ export default function ProfileScreen() {
               style: "destructive",
               onPress: async () => {
                 await logout();
-                router.replace("/auth/login");
+                // AppNavigator in _layout.tsx detects the isLoggedIn change
+                // and resets the navigation tree automatically
               },
             },
           ]);
