@@ -1,12 +1,11 @@
 import { BlurView } from "expo-blur";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
-import { Tabs, router } from "expo-router";
+import { Tabs } from "expo-router";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { SymbolView } from "expo-symbols";
 import { Feather } from "@expo/vector-icons";
-import React, { useEffect } from "react";
+import React from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
-import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 
 function NativeTabLayout() {
@@ -57,7 +56,12 @@ function ClassicTabLayout() {
               style={StyleSheet.absoluteFill}
             />
           ) : isWeb ? (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background, borderTopWidth: 1, borderTopColor: colors.border }]} />
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: colors.background, borderTopWidth: 1, borderTopColor: colors.border },
+              ]}
+            />
           ) : null,
       }}
     >
@@ -102,14 +106,6 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
-  const { isLoggedIn, isLoading } = useAuth();
-
-  useEffect(() => {
-    if (!isLoading && !isLoggedIn) {
-      router.replace("/auth/login");
-    }
-  }, [isLoggedIn, isLoading]);
-
   if (isLiquidGlassAvailable()) {
     return <NativeTabLayout />;
   }
