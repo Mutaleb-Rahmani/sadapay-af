@@ -6,56 +6,19 @@ import {
   useFonts,
 } from "@expo-google-fonts/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Redirect, Stack } from "expo-router";
+import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { AuthProvider } from "@/context/AuthContext";
 import { WalletProvider } from "@/context/WalletContext";
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
-
-function AuthGate({ children }: { children: React.ReactNode }) {
-  const { user, isLoggedIn, isLoading } = useAuth();
-
-  if (isLoading) {
-    return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#0D1117" }}>
-        <ActivityIndicator color="#00C896" size="large" />
-      </View>
-    );
-  }
-
-  if (!user) {
-    return <Redirect href="/auth" />;
-  }
-
-  if (!isLoggedIn) {
-    return <Redirect href="/auth/login" />;
-  }
-
-  return <>{children}</>;
-}
-
-function RootLayoutNav() {
-  return (
-    <Stack screenOptions={{ headerBackTitle: "Back" }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="auth/index" options={{ headerShown: false }} />
-      <Stack.Screen name="auth/register" options={{ headerShown: false }} />
-      <Stack.Screen name="auth/login" options={{ headerShown: false }} />
-      <Stack.Screen name="send" options={{ headerShown: false, presentation: "modal" }} />
-      <Stack.Screen name="receive" options={{ headerShown: false, presentation: "modal" }} />
-      <Stack.Screen name="scan" options={{ headerShown: false, presentation: "fullScreenModal" }} />
-    </Stack>
-  );
-}
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -81,9 +44,16 @@ export default function RootLayout() {
             <WalletProvider>
               <GestureHandlerRootView>
                 <KeyboardProvider>
-                  <AuthGate>
-                    <RootLayoutNav />
-                  </AuthGate>
+                  <Stack screenOptions={{ headerShown: false }}>
+                    <Stack.Screen name="index" />
+                    <Stack.Screen name="(tabs)" />
+                    <Stack.Screen name="auth/index" />
+                    <Stack.Screen name="auth/register" />
+                    <Stack.Screen name="auth/login" />
+                    <Stack.Screen name="send" options={{ presentation: "modal" }} />
+                    <Stack.Screen name="receive" options={{ presentation: "modal" }} />
+                    <Stack.Screen name="scan" options={{ presentation: "fullScreenModal" }} />
+                  </Stack>
                 </KeyboardProvider>
               </GestureHandlerRootView>
             </WalletProvider>
