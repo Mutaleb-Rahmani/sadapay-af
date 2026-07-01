@@ -1,166 +1,227 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 
-function PinDots({ value, length = 6 }: { value: string; length?: number }) {
-  const colors = useColors();
-  return (
-    <View style={styles.pinDots}>
-      {Array.from({ length }).map((_, i) => (
-        <View
-          key={i}
-          style={[
-            styles.pinDot,
-            {
-              backgroundColor: i < value.length ? colors.primary : colors.border,
-              borderColor: i < value.length ? colors.primary : colors.border,
-            },
-          ]}
-        />
-      ))}
-    </View>
-  );
-}
-
 export default function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user, login } = useAuth();
-  const [pin, setPin] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  const handlePinInput = async (digit: string) => {
-    if (loading || pin.length >= 6) return;
-    const next = pin + digit;
-    setPin(next);
-    Haptics.selectionAsync();
-    if (next.length === 6) {
-      setLoading(true);
-      const ok = await login(user?.phone ?? "", next);
-      if (ok) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        router.replace("/(tabs)");
-      } else {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert("Wrong PIN", "The PIN you entered is incorrect. Please try again.", [
-          { text: "OK", onPress: () => { setPin(""); setLoading(false); } },
-        ]);
-        setLoading(false);
-      }
+  const [phone, setPhone] = useState(user?.phone ?? "");
+  const [password, setPassword] = useState("");
+  const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [phoneFocused, setPhoneFocused] = useState(false);
+  const [passFocused, setPassFocused] = useState(false);
+
+  const passRef = useRef<TextInput>(null);
+
+  const handleSignIn = async () => {
+    if (!phone.trim() || !password) {
+      Alert.alert("Missing Fields", "Please enter your phone number and password.");
+      return;
+    }
+    setLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const ok = await login(phone.trim(), password);
+    setLoading(false);
+    if (ok) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.replace("/(tabs)");
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Sign In Failed", "Phone number or password is incorrect. Please try again.");
+      setPassword("");
     }
   };
 
-  const handleBackspace = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setPin((p) => p.slice(0, -1));
-  };
-
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 40, paddingBottom: insets.bottom + 24 }]}>
-      {/* Logo */}
-      <View style={styles.logoRow}>
-        <View style={[styles.logo, { backgroundColor: colors.primary }]}>
-          <Text style={[styles.logoText, { color: colors.primaryForeground }]}>S</Text>
-        </View>
-        <Text style={[styles.brand, { color: colors.foreground }]}>sadapay.af</Text>
-      </View>
-
-      {/* Avatar */}
-      <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-        <Text style={[styles.avatarText, { color: colors.primaryForeground }]}>
-          {user?.name?.[0]?.toUpperCase() ?? "?"}
-        </Text>
-      </View>
-      <Text style={[styles.welcomeBack, { color: colors.foreground }]}>
-        Welcome back,
-      </Text>
-      <Text style={[styles.userName, { color: colors.foreground }]}>
-        {user?.name ?? "User"}
-      </Text>
-      <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-        Enter your 6-digit PIN to continue
-      </Text>
-
-      <PinDots value={pin} />
-
-      {/* Keypad */}
-      <View style={styles.keypad}>
-        {[["1","2","3"],["4","5","6"],["7","8","9"],["","0","⌫"]].map((row, ri) => (
-          <View key={ri} style={styles.keypadRow}>
-            {row.map((key, ki) => (
-              <Pressable
-                key={ki}
-                style={({ pressed }) => [
-                  styles.keypadBtn,
-                  { backgroundColor: key ? (pressed ? colors.card : "transparent") : "transparent" },
-                ]}
-                onPress={() => key === "⌫" ? handleBackspace() : key ? handlePinInput(key) : null}
-                disabled={loading}
-              >
-                <Text style={[styles.keypadText, { color: key === "⌫" ? colors.mutedForeground : colors.foreground }]}>
-                  {key}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        ))}
-      </View>
-
-      {/* Switch account */}
-      <Pressable
-        style={styles.switchBtn}
-        onPress={() => {
-          Alert.alert(
-            "Switch Account",
-            "This will remove the current account and take you to registration.",
-            [
-              { text: "Cancel", style: "cancel" },
-              {
-                text: "Continue",
-                style: "destructive",
-                onPress: () => router.replace("/auth/register"),
-              },
-            ]
-          );
-        }}
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 40 },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.switchText, { color: colors.mutedForeground }]}>
-          Not you? <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold" }}>Switch account</Text>
-        </Text>
-      </Pressable>
-    </View>
+        {/* Back */}
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Feather name="arrow-left" size={22} color={colors.foreground} />
+        </Pressable>
+
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={[styles.headerIcon, { backgroundColor: "#00C89620" }]}>
+            <Feather name="log-in" size={26} color="#00C896" />
+          </View>
+          <Text style={[styles.title, { color: colors.foreground }]}>Welcome Back</Text>
+          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+            Sign in to your sadapay.af account to continue
+          </Text>
+        </View>
+
+        {/* User avatar if known */}
+        {user && (
+          <View style={[styles.userCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.avatar, { backgroundColor: "#00C896" }]}>
+              <Text style={styles.avatarText}>{user.name[0]?.toUpperCase()}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.userName, { color: colors.foreground }]}>{user.name}</Text>
+              <Text style={[styles.userPhone, { color: colors.mutedForeground }]}>{user.phone}</Text>
+            </View>
+            <Feather name="check-circle" size={18} color="#00C896" />
+          </View>
+        )}
+
+        {/* Phone field */}
+        <View style={styles.fieldWrap}>
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>Phone Number</Text>
+          <View
+            style={[
+              styles.inputBox,
+              { backgroundColor: colors.card, borderColor: phoneFocused ? "#00C896" : colors.border },
+            ]}
+          >
+            <Feather name="phone" size={17} color={phoneFocused ? "#00C896" : colors.mutedForeground} />
+            <TextInput
+              style={[styles.input, { color: colors.foreground }]}
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="+93 700 000 000"
+              placeholderTextColor={colors.mutedForeground}
+              keyboardType="phone-pad"
+              returnKeyType="next"
+              onSubmitEditing={() => passRef.current?.focus()}
+              onFocus={() => setPhoneFocused(true)}
+              onBlur={() => setPhoneFocused(false)}
+            />
+          </View>
+        </View>
+
+        {/* Password field */}
+        <View style={styles.fieldWrap}>
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>Password</Text>
+          <View
+            style={[
+              styles.inputBox,
+              { backgroundColor: colors.card, borderColor: passFocused ? "#00C896" : colors.border },
+            ]}
+          >
+            <Feather name="lock" size={17} color={passFocused ? "#00C896" : colors.mutedForeground} />
+            <TextInput
+              ref={passRef}
+              style={[styles.input, { color: colors.foreground }]}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Your password"
+              placeholderTextColor={colors.mutedForeground}
+              secureTextEntry={!showPass}
+              returnKeyType="done"
+              onSubmitEditing={handleSignIn}
+              onFocus={() => setPassFocused(true)}
+              onBlur={() => setPassFocused(false)}
+            />
+            <Pressable onPress={() => setShowPass((v) => !v)} hitSlop={8}>
+              <Feather name={showPass ? "eye-off" : "eye"} size={17} color={colors.mutedForeground} />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Sign In Button */}
+        <Pressable
+          style={({ pressed }) => [
+            styles.submitBtn,
+            { backgroundColor: "#00C896", opacity: pressed || loading ? 0.8 : 1, marginTop: 8 },
+          ]}
+          onPress={handleSignIn}
+          disabled={loading}
+        >
+          <Feather name="log-in" size={18} color="#fff" />
+          <Text style={styles.submitText}>{loading ? "Signing in…" : "Sign In"}</Text>
+        </Pressable>
+
+        {/* Divider */}
+        <View style={styles.divider}>
+          <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+          <Text style={[styles.dividerText, { color: colors.mutedForeground }]}>or</Text>
+          <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+        </View>
+
+        {/* Create account */}
+        <Pressable
+          style={({ pressed }) => [
+            styles.registerBtn,
+            { borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.8 : 1 },
+          ]}
+          onPress={() => router.replace("/auth/register")}
+        >
+          <Feather name="user-plus" size={18} color={colors.foreground} />
+          <Text style={[styles.registerBtnText, { color: colors.foreground }]}>
+            Don't have an account? Sign Up
+          </Text>
+        </Pressable>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: "center", paddingHorizontal: 24 },
-  logoRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 40, alignSelf: "flex-start" },
-  logo: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  logoText: { fontSize: 20, fontFamily: "Inter_700Bold" },
-  brand: { fontSize: 20, fontFamily: "Inter_700Bold" },
-  avatar: { width: 68, height: 68, borderRadius: 34, alignItems: "center", justifyContent: "center", marginBottom: 14 },
-  avatarText: { fontSize: 28, fontFamily: "Inter_700Bold" },
-  welcomeBack: { fontSize: 16, fontFamily: "Inter_400Regular", marginBottom: 2 },
-  userName: { fontSize: 24, fontFamily: "Inter_700Bold", marginBottom: 8 },
-  subtitle: { fontSize: 14, fontFamily: "Inter_400Regular", marginBottom: 32 },
-  pinDots: { flexDirection: "row", gap: 14, justifyContent: "center", marginBottom: 40 },
-  pinDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 2 },
-  keypad: { gap: 8, width: "100%" },
-  keypadRow: { flexDirection: "row", justifyContent: "center", gap: 16 },
-  keypadBtn: { width: 80, height: 72, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  keypadText: { fontSize: 26, fontFamily: "Inter_400Regular" },
-  switchBtn: { marginTop: 28 },
-  switchText: { fontSize: 14, fontFamily: "Inter_400Regular" },
+  container: { flex: 1 },
+  content: { paddingHorizontal: 24 },
+  backBtn: { marginBottom: 20, width: 36 },
+  header: { marginBottom: 24, gap: 8 },
+  headerIcon: {
+    width: 56, height: 56, borderRadius: 16,
+    alignItems: "center", justifyContent: "center", marginBottom: 4,
+  },
+  title: { fontSize: 28, fontFamily: "Inter_700Bold" },
+  subtitle: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 21 },
+  userCard: {
+    flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 16,
+    padding: 14, borderWidth: 1, marginBottom: 24,
+  },
+  avatar: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  avatarText: { fontSize: 20, fontFamily: "Inter_700Bold", color: "#fff" },
+  userName: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  userPhone: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  fieldWrap: { marginBottom: 16 },
+  label: { fontSize: 12, fontFamily: "Inter_600SemiBold", letterSpacing: 0.4, marginBottom: 8 },
+  inputBox: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    borderRadius: 14, borderWidth: 1.5, paddingHorizontal: 14, paddingVertical: 14,
+  },
+  input: { flex: 1, fontSize: 15, fontFamily: "Inter_400Regular" },
+  submitBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    borderRadius: 16, paddingVertical: 17, gap: 10,
+  },
+  submitText: { fontSize: 17, fontFamily: "Inter_600SemiBold", color: "#fff" },
+  divider: { flexDirection: "row", alignItems: "center", gap: 12, marginVertical: 16 },
+  dividerLine: { flex: 1, height: 1 },
+  dividerText: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  registerBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    borderRadius: 16, paddingVertical: 16, gap: 10, borderWidth: 1,
+  },
+  registerBtnText: { fontSize: 15, fontFamily: "Inter_500Medium" },
 });
