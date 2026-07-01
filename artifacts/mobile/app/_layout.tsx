@@ -6,9 +6,9 @@ import {
   useFonts,
 } from "@expo-google-fonts/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack, router, useSegments } from "expo-router";
+import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -18,44 +18,49 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { WalletProvider } from "@/context/WalletContext";
 
 SplashScreen.preventAutoHideAsync();
-
 const queryClient = new QueryClient();
 
 /**
- * Watches auth state from inside the provider tree.
- * useSegments tells us where the user currently is so we
- * only redirect when needed and avoid infinite loops.
+ * Rendered inside AuthProvider. Watches isLoggedIn and re-keys
+ * the entire Stack on logout so navigation resets from scratch.
  */
-function AuthWatcher() {
+function AppNavigator() {
   const { user, isLoggedIn, isLoading } = useAuth();
-  const segments = useSegments();
+  const [navKey, setNavKey] = useState(0);
+  const prevLoggedIn = useRef<boolean | null>(null);
 
+  // Detect sign-out: was logged in, now not logged in
   useEffect(() => {
     if (isLoading) return;
-
-    const inAuthGroup = segments[0] === "auth";
-    const inTabs = segments[0] === "(tabs)";
-
-    if (!user) {
-      // No account at all → welcome screen
-      if (!inAuthGroup) router.replace("/auth");
-    } else if (!isLoggedIn) {
-      // Has account but not logged in → login
-      if (!inAuthGroup) router.replace("/auth/login");
-    } else {
-      // Logged in → dashboard; leave if already there
-      if (inAuthGroup) router.replace("/(tabs)");
+    if (prevLoggedIn.current === true && !isLoggedIn) {
+      // Bump navKey to destroy + remount the entire Stack
+      setNavKey((k) => k + 1);
     }
-  }, [user, isLoggedIn, isLoading, segments]);
+    prevLoggedIn.current = isLoggedIn;
+  }, [isLoggedIn, isLoading]);
 
-  return null;
-}
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#0D1117" }}>
+        <ActivityIndicator color="#00C896" size="large" />
+      </View>
+    );
+  }
 
-function LoadingScreen() {
+  // Initial destination based on auth state
+  const initialRoute = !user ? "/auth" : !isLoggedIn ? "/auth/login" : "/(tabs)";
+
   return (
-    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#0D1117" }}>
-      <ActivityIndicator color="#00C896" size="large" />
-    </View>
+    <Stack key={navKey} initialRouteName="index" screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" initialParams={{ initialRoute }} />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="auth/index" />
+      <Stack.Screen name="auth/register" />
+      <Stack.Screen name="auth/login" />
+      <Stack.Screen name="send" options={{ presentation: "modal" }} />
+      <Stack.Screen name="receive" options={{ presentation: "modal" }} />
+      <Stack.Screen name="scan" options={{ presentation: "fullScreenModal" }} />
+    </Stack>
   );
 }
 
@@ -71,7 +76,7 @@ export default function RootLayout() {
     if (fontsLoaded || fontError) SplashScreen.hideAsync();
   }, [fontsLoaded, fontError]);
 
-  if (!fontsLoaded && !fontError) return <LoadingScreen />;
+  if (!fontsLoaded && !fontError) return null;
 
   return (
     <SafeAreaProvider>
@@ -81,19 +86,7 @@ export default function RootLayout() {
             <WalletProvider>
               <GestureHandlerRootView style={{ flex: 1 }}>
                 <KeyboardProvider>
-                  {/* Navigator — always mounted so router.replace() works everywhere */}
-                  <Stack screenOptions={{ headerShown: false }}>
-                    <Stack.Screen name="index" />
-                    <Stack.Screen name="(tabs)" />
-                    <Stack.Screen name="auth/index" />
-                    <Stack.Screen name="auth/register" />
-                    <Stack.Screen name="auth/login" />
-                    <Stack.Screen name="send" options={{ presentation: "modal" }} />
-                    <Stack.Screen name="receive" options={{ presentation: "modal" }} />
-                    <Stack.Screen name="scan" options={{ presentation: "fullScreenModal" }} />
-                  </Stack>
-                  {/* Global auth watcher — redirects on login/logout from anywhere */}
-                  <AuthWatcher />
+                  <AppNavigator />
                 </KeyboardProvider>
               </GestureHandlerRootView>
             </WalletProvider>
