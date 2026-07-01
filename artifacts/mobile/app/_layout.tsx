@@ -33,7 +33,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    return <Redirect href="/auth/register" />;
+    return <Redirect href="/auth" />;
   }
 
   if (!isLoggedIn) {
@@ -47,6 +47,7 @@ function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="auth/index" options={{ headerShown: false }} />
       <Stack.Screen name="auth/register" options={{ headerShown: false }} />
       <Stack.Screen name="auth/login" options={{ headerShown: false }} />
       <Stack.Screen name="send" options={{ headerShown: false, presentation: "modal" }} />
